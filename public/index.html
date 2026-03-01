@@ -116,6 +116,10 @@
       will-change: transform;
     }
 
+    .reels-container.is-paused .reel-track {
+      animation-play-state: paused;
+    }
+
     /* Scroll animation — alternating directions */
     .reel-column:nth-child(odd) .reel-track {
       animation: scrollUp var(--reel-speed) linear infinite;
@@ -131,10 +135,6 @@
     @keyframes scrollDown {
       0% { transform: translateY(-50%); }
       100% { transform: translateY(0); }
-    }
-
-    .reel-track:hover {
-      animation-play-state: paused;
     }
 
     /* ─── Photo Cards ───────────────────────────── */
@@ -154,6 +154,14 @@
       transform: scale(1.04);
     }
 
+    .photo-card.is-active {
+      z-index: 120;
+    }
+
+    .photo-card.is-active img {
+      transform: scale(1.07);
+    }
+
     /* Subtle shine on hover */
     .photo-card::after {
       content: '';
@@ -164,6 +172,37 @@
       transition: opacity 0.4s;
     }
     .photo-card:hover::after { opacity: 1; }
+
+    /* ─── Photo Preview ─────────────────────────── */
+    .photo-preview {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(8, 8, 10, 0.75);
+      backdrop-filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 110;
+    }
+
+    .photo-preview.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .photo-preview img {
+      border-radius: 8px;
+      box-shadow: 0 20px 80px rgba(0, 0, 0, 0.55);
+      max-width: min(92vw, 1100px);
+      max-height: 88vh;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
 
     /* ─── Empty State ───────────────────────────── */
     .empty-state {
@@ -248,6 +287,10 @@
     <span id="countNum">0</span> photos on the wall
   </div>
 
+  <div class="photo-preview" id="photoPreview" aria-hidden="true">
+    <img id="photoPreviewImg" alt="Expanded community photo" />
+  </div>
+
   <script>
     const NUM_COLUMNS = window.innerWidth < 600 ? 3 : window.innerWidth < 900 ? 4 : 5;
     const POLL_INTERVAL = 8000; // poll every 8s
@@ -255,6 +298,56 @@
 
     let currentImages = [];
     let container = document.getElementById('reelsContainer');
+    const photoPreview = document.getElementById('photoPreview');
+    const photoPreviewImg = document.getElementById('photoPreviewImg');
+    const isTouchDevice = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+    let activeCard = null;
+
+    function setReelsPaused(shouldPause) {
+      container.classList.toggle('is-paused', shouldPause);
+    }
+
+    function closePreview() {
+      photoPreview.classList.remove('is-visible');
+      photoPreview.setAttribute('aria-hidden', 'true');
+      photoPreviewImg.removeAttribute('src');
+      if (activeCard) {
+        activeCard.classList.remove('is-active');
+        activeCard = null;
+      }
+      setReelsPaused(false);
+    }
+
+    function openPreview(card, imgData, lockOpen) {
+      const source = imgData.url || imgData.thumbUrl;
+      if (!source) return;
+
+      if (activeCard && activeCard !== card) {
+        activeCard.classList.remove('is-active');
+      }
+
+      activeCard = card;
+      activeCard.classList.add('is-active');
+
+      const preloadImage = new Image();
+      preloadImage.onload = () => {
+        const maxWidth = Math.min(window.innerWidth * 0.92, 1100);
+        const maxHeight = window.innerHeight * 0.88;
+        const naturalWidth = preloadImage.naturalWidth || maxWidth;
+        const naturalHeight = preloadImage.naturalHeight || maxHeight;
+        const scale = Math.min(maxWidth / naturalWidth, maxHeight / naturalHeight, 1);
+
+        photoPreviewImg.style.width = `${Math.round(naturalWidth * scale)}px`;
+        photoPreviewImg.style.height = `${Math.round(naturalHeight * scale)}px`;
+      };
+      preloadImage.src = source;
+
+      photoPreviewImg.src = source;
+      photoPreview.classList.add('is-visible');
+      photoPreview.setAttribute('aria-hidden', 'false');
+      photoPreview.dataset.locked = lockOpen ? 'true' : 'false';
+      setReelsPaused(true);
+    }
 
     // ─── Fetch images ────────────────────────────
     async function fetchImages() {
@@ -315,6 +408,23 @@
           imgEl.style.height = heights[(i + colIdx * 3) % heights.length] + 'px';
           imgEl.onerror = () => { card.style.display = 'none'; };
 
+          card.addEventListener('mouseenter', () => {
+            if (!isTouchDevice) openPreview(card, img, false);
+          });
+
+          card.addEventListener('mouseleave', () => {
+            if (!isTouchDevice && photoPreview.dataset.locked !== 'true') closePreview();
+          });
+
+          card.addEventListener('click', () => {
+            const isAlreadyActive = activeCard === card && photoPreview.classList.contains('is-visible');
+            if (isAlreadyActive && photoPreview.dataset.locked === 'true') {
+              closePreview();
+              return;
+            }
+            openPreview(card, img, true);
+          });
+
           card.appendChild(imgEl);
           track.appendChild(card);
         });
@@ -347,6 +457,14 @@
 
     init();
     setInterval(poll, POLL_INTERVAL);
+
+    photoPreview.addEventListener('click', closePreview);
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && photoPreview.classList.contains('is-visible')) {
+        closePreview();
+      }
+    });
 
     // Rebuild on resize
     let resizeTimer;
