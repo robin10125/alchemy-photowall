@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — PhotoWall</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0a0c;
+      --surface: #141418;
+      --surface-2: #1c1c22;
+      --border: rgba(240,237,232,0.08);
+      --border-active: rgba(240,237,232,0.2);
+      --text: #f0ede8;
+      --text-dim: #7a7872;
+      --accent: #e8c46c;
+      --accent-glow: rgba(232,196,108,0.15);
+      --green: #6ce88a;
+      --green-bg: rgba(108,232,138,0.08);
+      --red: #e86c6c;
+      --red-bg: rgba(232,108,108,0.08);
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Instrument Sans', sans-serif;
+    }
+
+    /* ─── Login Screen ──────────────────────── */
+    .login-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 380px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px 32px;
+      text-align: center;
+    }
+    .login-card .logo {
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      font-size: 1.5rem;
+      margin-bottom: 4px;
+    }
+    .login-card .logo span { color: var(--accent); }
+    .login-card .login-subtitle {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      margin-bottom: 28px;
+    }
+
+    .form-group {
+      text-align: left;
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus { border-color: var(--accent); }
+
+    .login-btn {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .login-btn:hover { box-shadow: 0 4px 20px var(--accent-glow); }
+    .login-error {
+      margin-top: 12px;
+      font-size: 0.82rem;
+      color: var(--red);
+      display: none;
+    }
+
+    /* ─── Dashboard ──────────────────────────── */
+    .dashboard { display: none; }
+    .dashboard.active { display: block; }
+
+    /* Top nav */
+    .admin-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 50;
+    }
+    .admin-nav .logo {
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      font-size: 1.2rem;
+    }
+    .admin-nav .logo span { color: var(--accent); }
+    .admin-nav .admin-badge {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      background: var(--accent-glow);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-weight: 700;
+      margin-left: 10px;
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-link {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.82rem;
+      transition: color 0.2s;
+    }
+    .nav-link:hover { color: var(--accent); }
+    .logout-btn {
+      padding: 6px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex;
+      gap: 1px;
+      padding: 20px 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .stat-card {
+      flex: 1;
+      text-align: center;
+      padding: 12px 8px;
+    }
+    .stat-num {
+      font-size: 1.8rem;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .stat-num.pending { color: var(--accent); }
+    .stat-num.approved { color: var(--green); }
+    .stat-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+    }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border);
+    }
+    .toolbar h2 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .bulk-btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .bulk-btn.approve:hover { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+    .bulk-btn.reject:hover { border-color: var(--red); color: var(--red); background: var(--red-bg); }
+    .bulk-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .select-all-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      cursor: pointer;
+    }
+    .select-all-label input { accent-color: var(--accent); }
+
+    /* Image grid */
+    .pending-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+      padding: 24px 28px;
+    }
+
+    .pending-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: all 0.25s;
+      position: relative;
+    }
+    .pending-card:hover { border-color: var(--border-active); }
+    .pending-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+    .pending-card .card-select {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 5;
+      width: 22px;
+      height: 22px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .pending-card img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      display: block;
+      cursor: pointer;
+      transition: opacity 0.3s;
+    }
+    .pending-card img:hover { opacity: 0.9; }
+
+    .card-info {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .card-meta {
+      font-size: 0.76rem;
+      color: var(--text-dim);
+    }
+    .card-meta .card-name {
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .card-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .action-btn {
+      flex: 1;
+      padding: 8px 0;
+      border-radius: 6px;
+      border: none;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .action-btn.approve-btn {
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid rgba(108,232,138,0.2);
+    }
+    .action-btn.approve-btn:hover { background: rgba(108,232,138,0.15); }
+    .action-btn.reject-btn {
+      background: var(--red-bg);
+      color: var(--red);
+      border: 1px solid rgba(232,108,108,0.2);
+    }
+    .action-btn.reject-btn:hover { background: rgba(232,108,108,0.15); }
+
+    /* ─── Card removing animation ───────────── */
+    .pending-card.removing {
+      animation: cardRemove 0.4s ease forwards;
+    }
+    @keyframes cardRemove {
+      to { opacity: 0; transform: scale(0.9); height: 0; padding: 0; margin: 0; overflow: hidden; }
+    }
+
+    /* Empty state */
+    .empty-pending {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--text-dim);
+    }
+    .empty-pending h3 {
+      font-size: 1.2rem;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .empty-pending p { font-size: 0.9rem; }
+
+    /* ─── Lightbox ───────────────────────────── */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .lightbox.active { display: flex; }
+    .lightbox img {
+      max-width: 90vw;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 20px;
+      right: 24px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: white;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ─── Toast Notification ─────────────────── */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      font-weight: 500;
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 2.5s forwards;
+    }
+    .toast.success { background: var(--green-bg); color: var(--green); border: 1px solid rgba(108,232,138,0.2); }
+    .toast.error { background: var(--red-bg); color: var(--red); border: 1px solid rgba(232,108,108,0.2); }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } }
+    @keyframes toastOut { to { opacity: 0; transform: translateY(-10px); } }
+
+    @media (max-width: 600px) {
+      .stats-bar { flex-wrap: wrap; }
+      .stat-card { min-width: 50%; }
+      .pending-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; padding: 16px; }
+      .pending-card img { height: 160px; }
+      .toolbar { flex-direction: column; gap: 12px; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login Screen -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <div class="logo">Photo<span>Wall</span></div>
+      <p class="login-subtitle">Admin Panel</p>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="loginUser" placeholder="admin" autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="login-btn" id="loginBtn">Sign In</button>
+      <div class="login-error" id="loginError">Invalid credentials. Please try again.</div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="dashboard" id="dashboard">
+    <nav class="admin-nav">
+      <div style="display:flex;align-items:center;">
+        <div class="logo">Photo<span>Wall</span></div>
+        <span class="admin-badge">Admin</span>
+      </div>
+      <div class="nav-actions">
+        <a href="/" class="nav-link">View Wall</a>
+        <button class="logout-btn" id="logoutBtn">Logout</button>
+      </div>
+    </nav>
+
+    <div class="stats-bar" id="statsBar">
+      <div class="stat-card">
+        <div class="stat-num pending" id="statPending">0</div>
+        <div class="stat-label">Pending</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num approved" id="statApproved">0</div>
+        <div class="stat-label">Approved</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statTotal">0</div>
+        <div class="stat-label">Total</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statCapacity">0</div>
+        <div class="stat-label">Capacity</div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <h2>Pending Review (<span id="pendingCount">0</span>)</h2>
+      <div class="toolbar-actions">
+        <label class="select-all-label">
+          <input type="checkbox" id="selectAll"> Select All
+        </label>
+        <button class="bulk-btn approve" id="bulkApprove" disabled>Approve Selected</button>
+        <button class="bulk-btn reject" id="bulkReject" disabled>Reject Selected</button>
+      </div>
+    </div>
+
+    <div class="pending-grid" id="pendingGrid"></div>
+    <div class="empty-pending" id="emptyPending" style="display:none;">
+      <h3>All caught up! ✓</h3>
+      <p>No photos pending review. New uploads will appear here automatically.</p>
+    </div>
+  </div>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightboxClose">✕</button>
+    <img id="lightboxImg" alt="Preview">
+  </div>
+
+  <!-- Toasts -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    let authToken = '';
+    let pendingImages = [];
+    let selectedIds = new Set();
+    const POLL_INTERVAL = 5000;
+    let pollTimer;
+
+    // ─── Auth ────────────────────────────────────
+    function getAuthHeader() {
+      return 'Basic ' + btoa(authToken);
+    }
+
+    document.getElementById('loginBtn').addEventListener('click', login);
+    document.getElementById('loginPass').addEventListener('keydown', e => { if(e.key === 'Enter') login(); });
+
+    async function login() {
+      const user = document.getElementById('loginUser').value;
+      const pass = document.getElementById('loginPass').value;
+      authToken = user + ':' + pass;
+
+      try {
+        const res = await fetch('/api/admin/pending', {
+          headers: { 'Authorization': getAuthHeader() }
+        });
+        if (res.ok) {
+          document.getElementById('loginScreen').style.display = 'none';
+          document.getElementById('dashboard').classList.add('active');
+          loadDashboard();
+          pollTimer = setInterval(loadDashboard, POLL_INTERVAL);
+        } else {
+          document.getElementById('loginError').style.display = 'block';
+        }
+      } catch (e) {
+        document.getElementById('loginError').style.display = 'block';
+      }
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      authToken = '';
+      clearInterval(pollTimer);
+      document.getElementById('dashboard').classList.remove('active');
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('loginUser').value = '';
+      document.getElementById('loginPass').value = '';
+    });
+
+    // ─── Load Dashboard ──────────────────────────
+    async function loadDashboard() {
+      try {
+        const [pendingRes, statsRes] = await Promise.all([
+          fetch('/api/admin/pending', { headers: { 'Authorization': getAuthHeader() } }),
+          fetch('/api/admin/stats', { headers: { 'Authorization': getAuthHeader() } }),
+        ]);
+
+        if (pendingRes.ok) {
+          const data = await pendingRes.json();
+          pendingImages = data.images;
+          renderPending();
+        }
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          document.getElementById('statPending').textContent = stats.pending;
+          document.getElementById('statApproved').textContent = stats.approved;
+          document.getElementById('statTotal').textContent = stats.pending + stats.approved;
+          document.getElementById('statCapacity').textContent = stats.capacity;
+        }
+      } catch (e) {
+        console.warn('Dashboard load failed:', e);
+      }
+    }
+
+    // ─── Render Pending Grid ─────────────────────
+    // Cache for authenticated blob URLs so we don't re-fetch on every render
+    const blobUrlCache = new Map();
+
+    async function fetchAuthImage(url) {
+      if (blobUrlCache.has(url)) return blobUrlCache.get(url);
+      try {
+        const res = await fetch(url, { headers: { 'Authorization': getAuthHeader() } });
+        if (!res.ok) return '';
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        blobUrlCache.set(url, blobUrl);
+        return blobUrl;
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function renderPending() {
+      const grid = document.getElementById('pendingGrid');
+      const empty = document.getElementById('emptyPending');
+      document.getElementById('pendingCount').textContent = pendingImages.length;
+
+      if (pendingImages.length === 0) {
+        grid.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+
+      grid.innerHTML = pendingImages.map(img => `
+        <div class="pending-card${selectedIds.has(img.id) ? ' selected' : ''}" data-id="${img.id}">
+          <input type="checkbox" class="card-select" ${selectedIds.has(img.id) ? 'checked' : ''} data-id="${img.id}">
+          <img data-preview-url="${img.previewUrl}" alt="${img.originalName}" loading="lazy" style="background:var(--surface-2);">
+          <div class="card-info">
+            <div class="card-meta">
+              <div class="card-name">${escapeHtml(img.originalName)}</div>
+              <div>${timeAgo(img.uploadedAt)}</div>
+            </div>
+            <div class="card-actions">
+              <button class="action-btn approve-btn" onclick="approveImage('${img.id}', this)">✓ Approve</button>
+              <button class="action-btn reject-btn" onclick="rejectImage('${img.id}', this)">✕ Reject</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      // Load images with auth headers
+      grid.querySelectorAll('img[data-preview-url]').forEach(async (imgEl) => {
+        const url = imgEl.dataset.previewUrl;
+        const blobUrl = await fetchAuthImage(url);
+        if (blobUrl) {
+          imgEl.src = blobUrl;
+          imgEl.onclick = () => openLightbox(blobUrl);
+        }
+      });
+
+      // Checkbox events
+      grid.querySelectorAll('.card-select').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+          const id = e.target.dataset.id;
+          if (e.target.checked) selectedIds.add(id);
+          else selectedIds.delete(id);
+          e.target.closest('.pending-card').classList.toggle('selected', e.target.checked);
+          updateBulkButtons();
+        });
+      });
+    }
+
+    // ─── Actions ─────────────────────────────────
+    async function approveImage(id, btnEl) {
+      try {
+        btnEl.disabled = true;
+        const res = await fetch(`/api/admin/approve/${id}`, {
+          method: 'POST',
+          headers: { 'Authorization': getAuthHeader() }
+        });
+        if (res.ok) {
+          removeCard(id);
+          showToast('Image approved', 'success');
+        } else {
+          showToast('Failed to approve', 'error');
+        }
+      } catch (e) {
+        showToast('Error approving image', 'error');
+      }
+    }
+
+    async function rejectImage(id, btnEl) {
+      try {
+        btnEl.disabled = true;
+        const res = await fetch(`/api/admin/reject/${id}`, {
+          method: 'POST',
+          headers: { 'Authorization': getAuthHeader() }
+        });
+        if (res.ok) {
+          removeCard(id);
+          showToast('Image rejected', 'success');
+        } else {
+          showToast('Failed to reject', 'error');
+        }
+      } catch (e) {
+        showToast('Error rejecting image', 'error');
+      }
+    }
+
+    function removeCard(id) {
+      selectedIds.delete(id);
+      pendingImages = pendingImages.filter(i => i.id !== id);
+      const card = document.querySelector(`.pending-card[data-id="${id}"]`);
+      if (card) {
+        card.classList.add('removing');
+        setTimeout(() => renderPending(), 400);
+      }
+      updateBulkButtons();
+      loadDashboard();
+    }
+
+    // ─── Bulk Actions ────────────────────────────
+    document.getElementById('selectAll').addEventListener('change', (e) => {
+      if (e.target.checked) {
+        pendingImages.forEach(i => selectedIds.add(i.id));
+      } else {
+        selectedIds.clear();
+      }
+      renderPending();
+      updateBulkButtons();
+    });
+
+    function updateBulkButtons() {
+      const hasSelection = selectedIds.size > 0;
+      document.getElementById('bulkApprove').disabled = !hasSelection;
+      document.getElementById('bulkReject').disabled = !hasSelection;
+    }
+
+    document.getElementById('bulkApprove').addEventListener('click', async () => {
+      if (selectedIds.size === 0) return;
+      const ids = [...selectedIds];
+      try {
+        const res = await fetch('/api/admin/bulk', {
+          method: 'POST',
+          headers: { 'Authorization': getAuthHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids, action: 'approve' })
+        });
+        if (res.ok) {
+          selectedIds.clear();
+          showToast(`${ids.length} images approved`, 'success');
+          loadDashboard();
+        }
+      } catch (e) {
+        showToast('Bulk approve failed', 'error');
+      }
+    });
+
+    document.getElementById('bulkReject').addEventListener('click', async () => {
+      if (selectedIds.size === 0) return;
+      if (!confirm(`Reject ${selectedIds.size} images? This cannot be undone.`)) return;
+      const ids = [...selectedIds];
+      try {
+        const res = await fetch('/api/admin/bulk', {
+          method: 'POST',
+          headers: { 'Authorization': getAuthHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids, action: 'reject' })
+        });
+        if (res.ok) {
+          selectedIds.clear();
+          showToast(`${ids.length} images rejected`, 'success');
+          loadDashboard();
+        }
+      } catch (e) {
+        showToast('Bulk reject failed', 'error');
+      }
+    });
+
+    // ─── Lightbox ────────────────────────────────
+    function openLightbox(url) {
+      document.getElementById('lightboxImg').src = url;
+      document.getElementById('lightbox').classList.add('active');
+    }
+    document.getElementById('lightbox').addEventListener('click', (e) => {
+      if (e.target !== document.getElementById('lightboxImg')) {
+        document.getElementById('lightbox').classList.remove('active');
+      }
+    });
+    document.getElementById('lightboxClose').addEventListener('click', () => {
+      document.getElementById('lightbox').classList.remove('active');
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') document.getElementById('lightbox').classList.remove('active');
+    });
+
+    // ─── Helpers ─────────────────────────────────
+    function showToast(msg, type) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function timeAgo(dateStr) {
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return mins + 'm ago';
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + 'h ago';
+      return Math.floor(hrs / 24) + 'd ago';
+    }
+  </script>
+</body>
+</html>

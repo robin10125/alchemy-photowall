@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload — PhotoWall</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0a0c;
+      --surface: #141418;
+      --surface-2: #1c1c22;
+      --border: rgba(240,237,232,0.08);
+      --text: #f0ede8;
+      --text-dim: #7a7872;
+      --accent: #e8c46c;
+      --accent-glow: rgba(232,196,108,0.15);
+      --green: #6ce88a;
+      --red: #e86c6c;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Instrument Sans', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .upload-container {
+      width: 100%;
+      max-width: 520px;
+    }
+
+    /* ─── Header ─────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .header a {
+      text-decoration: none;
+    }
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      font-size: 1.6rem;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .logo span { color: var(--accent); }
+    .subtitle {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    /* ─── Drop Zone ──────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 60px 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(232,196,108,0.03);
+    }
+    .drop-zone.dragover {
+      transform: scale(1.01);
+    }
+
+    .drop-zone-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 20px;
+      border-radius: 14px;
+      background: var(--surface-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .drop-zone-icon svg {
+      width: 28px; height: 28px;
+      color: var(--accent);
+    }
+    .drop-zone h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .drop-zone p {
+      color: var(--text-dim);
+      font-size: 0.82rem;
+    }
+
+    input[type="file"] { display: none; }
+
+    /* ─── Preview ────────────────────────────── */
+    .preview-area {
+      margin-top: 24px;
+      display: none;
+    }
+    .preview-area.active { display: block; }
+
+    .preview-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+    .preview-card img {
+      width: 100%;
+      max-height: 400px;
+      object-fit: contain;
+      background: #0e0e11;
+    }
+    .preview-info {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .file-name {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .remove-btn {
+      padding: 6px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-dim);
+      font-size: 0.78rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .remove-btn:hover {
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    /* ─── Upload Button ──────────────────────── */
+    .submit-btn {
+      width: 100%;
+      margin-top: 20px;
+      padding: 14px 24px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 10px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.92rem;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: all 0.25s;
+      text-transform: uppercase;
+    }
+    .submit-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 32px var(--accent-glow);
+    }
+    .submit-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ─── Progress Bar ───────────────────────── */
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--surface-2);
+      border-radius: 2px;
+      margin-top: 16px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar.active { display: block; }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* ─── Messages ───────────────────────────── */
+    .message {
+      margin-top: 20px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      display: none;
+    }
+    .message.active { display: block; }
+    .message.success {
+      background: rgba(108,232,138,0.08);
+      border: 1px solid rgba(108,232,138,0.2);
+      color: var(--green);
+    }
+    .message.error {
+      background: rgba(232,108,108,0.08);
+      border: 1px solid rgba(232,108,108,0.2);
+      color: var(--red);
+    }
+
+    /* ─── Back Link ──────────────────────────── */
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 32px;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--accent); }
+
+    /* ─── Rules ───────────────────────────────── */
+    .rules {
+      margin-top: 32px;
+      padding: 20px;
+      background: var(--surface);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .rules h4 {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+    .rules ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .rules li {
+      font-size: 0.84rem;
+      color: var(--text-dim);
+      padding-left: 20px;
+      position: relative;
+    }
+    .rules li::before {
+      content: '→';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="upload-container">
+    <div class="header">
+      <a href="/">
+        <div class="logo">Photo<span>Wall</span></div>
+      </a>
+      <p class="subtitle">Upload a photo to the community wall.<br>It'll appear after a quick review.</p>
+    </div>
+
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-zone-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <h3>Drop your photo here</h3>
+      <p>or click to browse — JPEG, PNG, WebP, GIF up to 10 MB</p>
+    </div>
+    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif">
+
+    <div class="preview-area" id="previewArea">
+      <div class="preview-card">
+        <img id="previewImg" alt="Preview">
+        <div class="preview-info">
+          <span class="file-name" id="fileName"></span>
+          <button class="remove-btn" id="removeBtn">Remove</button>
+        </div>
+      </div>
+      <button class="submit-btn" id="submitBtn">Upload Photo</button>
+      <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <div class="message" id="message"></div>
+
+    <a href="/" class="back-link">← Back to the wall</a>
+
+    <div class="rules">
+      <h4>Upload Guidelines</h4>
+      <ul>
+        <li>Photos are reviewed before appearing on the wall</li>
+        <li>Keep it appropriate — no offensive content</li>
+        <li>Maximum file size is 10 MB</li>
+        <li>Supported formats: JPEG, PNG, WebP, GIF</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const previewArea = document.getElementById('previewArea');
+    const previewImg = document.getElementById('previewImg');
+    const fileName = document.getElementById('fileName');
+    const removeBtn = document.getElementById('removeBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressFill = document.getElementById('progressFill');
+    const message = document.getElementById('message');
+
+    let selectedFile = null;
+
+    // ─── Drop Zone Events ────────────────────────
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) handleFile(e.target.files[0]);
+    });
+
+    // ─── File handling ───────────────────────────
+    function handleFile(file) {
+      const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!allowed.includes(file.type)) {
+        showMessage('Only JPEG, PNG, WebP, and GIF images are allowed.', 'error');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        showMessage('File is too large. Maximum size is 10 MB.', 'error');
+        return;
+      }
+
+      selectedFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewImg.src = e.target.result;
+        fileName.textContent = file.name;
+        dropZone.style.display = 'none';
+        previewArea.classList.add('active');
+        hideMessage();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    removeBtn.addEventListener('click', () => {
+      selectedFile = null;
+      fileInput.value = '';
+      previewArea.classList.remove('active');
+      dropZone.style.display = 'block';
+    });
+
+    // ─── Upload ──────────────────────────────────
+    submitBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Uploading…';
+      progressBar.classList.add('active');
+      hideMessage();
+
+      const formData = new FormData();
+      formData.append('photo', selectedFile);
+
+      try {
+        // Simulate progress since fetch doesn't support it natively
+        let progress = 0;
+        const interval = setInterval(() => {
+          progress = Math.min(progress + Math.random() * 15, 90);
+          progressFill.style.width = progress + '%';
+        }, 200);
+
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        clearInterval(interval);
+        progressFill.style.width = '100%';
+
+        const data = await res.json();
+
+        if (res.ok) {
+          showMessage('Photo uploaded successfully! It will appear on the wall once an admin approves it.', 'success');
+          selectedFile = null;
+          fileInput.value = '';
+          setTimeout(() => {
+            previewArea.classList.remove('active');
+            dropZone.style.display = 'block';
+          }, 1500);
+        } else {
+          showMessage(data.error || 'Upload failed. Please try again.', 'error');
+        }
+      } catch (err) {
+        showMessage('Upload failed. Check your connection and try again.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Upload Photo';
+        setTimeout(() => {
+          progressBar.classList.remove('active');
+          progressFill.style.width = '0%';
+        }, 1000);
+      }
+    });
+
+    function showMessage(text, type) {
+      message.textContent = text;
+      message.className = `message active ${type}`;
+    }
+    function hideMessage() {
+      message.className = 'message';
+    }
+  </script>
+</body>
+</html>

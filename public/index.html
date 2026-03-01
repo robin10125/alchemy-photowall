@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Photo Wall</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0a0a0c;
+      --surface: #141418;
+      --text: #f0ede8;
+      --text-dim: #7a7872;
+      --accent: #e8c46c;
+      --accent-glow: rgba(232,196,108,0.15);
+      --col-gap: 6px;
+      --reel-speed: 40s;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Instrument Sans', sans-serif;
+    }
+
+    /* ─── Top Bar ───────────────────────────────── */
+    .topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      background: linear-gradient(180deg, rgba(10,10,12,0.95) 0%, rgba(10,10,12,0) 100%);
+      pointer-events: none;
+    }
+    .topbar > * { pointer-events: auto; }
+
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      font-size: 1.4rem;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+    .logo span { color: var(--accent); }
+
+    .upload-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      background: var(--accent);
+      color: var(--bg);
+      font-family: 'Instrument Sans', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .upload-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px var(--accent-glow);
+    }
+    .upload-btn svg { width: 16px; height: 16px; }
+
+    /* ─── Reel Container ────────────────────────── */
+    .reels-container {
+      display: flex;
+      gap: var(--col-gap);
+      height: 100vh;
+      padding: 0 var(--col-gap);
+      overflow: hidden;
+    }
+
+    .reel-column {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Fade edges */
+    .reel-column::before,
+    .reel-column::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 120px;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .reel-column::before {
+      top: 0;
+      background: linear-gradient(180deg, var(--bg) 0%, transparent 100%);
+    }
+    .reel-column::after {
+      bottom: 0;
+      background: linear-gradient(0deg, var(--bg) 0%, transparent 100%);
+    }
+
+    .reel-track {
+      display: flex;
+      flex-direction: column;
+      gap: var(--col-gap);
+      will-change: transform;
+    }
+
+    /* Scroll animation — alternating directions */
+    .reel-column:nth-child(odd) .reel-track {
+      animation: scrollUp var(--reel-speed) linear infinite;
+    }
+    .reel-column:nth-child(even) .reel-track {
+      animation: scrollDown var(--reel-speed) linear infinite;
+    }
+
+    @keyframes scrollUp {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-50%); }
+    }
+    @keyframes scrollDown {
+      0% { transform: translateY(-50%); }
+      100% { transform: translateY(0); }
+    }
+
+    .reel-track:hover {
+      animation-play-state: paused;
+    }
+
+    /* ─── Photo Cards ───────────────────────────── */
+    .photo-card {
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+      background: var(--surface);
+    }
+    .photo-card img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+      transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .photo-card:hover img {
+      transform: scale(1.04);
+    }
+
+    /* Subtle shine on hover */
+    .photo-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    .photo-card:hover::after { opacity: 1; }
+
+    /* ─── Empty State ───────────────────────────── */
+    .empty-state {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 16px;
+      z-index: 10;
+    }
+    .empty-state h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 700;
+    }
+    .empty-state p {
+      color: var(--text-dim);
+      max-width: 360px;
+      line-height: 1.6;
+    }
+
+    /* ─── Count Badge ───────────────────────────── */
+    .photo-count {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      padding: 8px 18px;
+      background: rgba(20,20,24,0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(240,237,232,0.08);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .photo-count span { color: var(--accent); font-weight: 700; }
+
+    /* ─── Responsive ────────────────────────────── */
+    @media (max-width: 900px) {
+      .reels-container { gap: 4px; padding: 0 4px; }
+      .reel-track { gap: 4px; }
+    }
+    @media (max-width: 600px) {
+      :root { --reel-speed: 30s; }
+      .topbar { padding: 12px 16px; }
+      .logo { font-size: 1.1rem; }
+      .upload-btn { padding: 8px 16px; font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="logo">Photo<span>Wall</span></div>
+    <a href="/upload.html" class="upload-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      Upload Photo
+    </a>
+  </header>
+
+  <!-- Reels -->
+  <div class="reels-container" id="reelsContainer"></div>
+
+  <!-- Empty State -->
+  <div class="empty-state" id="emptyState" style="display:none;">
+    <h2>No photos yet</h2>
+    <p>Be the first to upload a photo. It'll appear here once approved.</p>
+    <a href="/upload.html" class="upload-btn">Upload a Photo</a>
+  </div>
+
+  <!-- Count -->
+  <div class="photo-count" id="photoCount" style="display:none;">
+    <span id="countNum">0</span> photos on the wall
+  </div>
+
+  <script>
+    const NUM_COLUMNS = window.innerWidth < 600 ? 3 : window.innerWidth < 900 ? 4 : 5;
+    const POLL_INTERVAL = 8000; // poll every 8s
+    const API_BASE = '';
+
+    let currentImages = [];
+    let container = document.getElementById('reelsContainer');
+
+    // ─── Fetch images ────────────────────────────
+    async function fetchImages() {
+      try {
+        const res = await fetch(`${API_BASE}/api/images`);
+        if (!res.ok) return;
+        const data = await res.json();
+        return data.images || [];
+      } catch (e) {
+        console.warn('Failed to fetch images:', e);
+        return null;
+      }
+    }
+
+    // ─── Build reel columns ──────────────────────
+    function buildReels(images) {
+      container.innerHTML = '';
+
+      if (images.length === 0) {
+        document.getElementById('emptyState').style.display = 'flex';
+        document.getElementById('photoCount').style.display = 'none';
+        return;
+      }
+
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('photoCount').style.display = 'block';
+      document.getElementById('countNum').textContent = images.length;
+
+      // Distribute images into columns
+      const columns = Array.from({ length: NUM_COLUMNS }, () => []);
+      images.forEach((img, i) => {
+        columns[i % NUM_COLUMNS].push(img);
+      });
+
+      columns.forEach((colImages, colIdx) => {
+        if (colImages.length === 0) return;
+
+        const col = document.createElement('div');
+        col.className = 'reel-column';
+
+        const track = document.createElement('div');
+        track.className = 'reel-track';
+
+        // Duplicate images for seamless loop
+        const allImages = [...colImages, ...colImages];
+
+        // Vary heights for visual interest
+        const heights = [260, 320, 200, 380, 280, 340, 220, 300];
+
+        allImages.forEach((img, i) => {
+          const card = document.createElement('div');
+          card.className = 'photo-card';
+
+          const imgEl = document.createElement('img');
+          imgEl.src = img.thumbUrl || img.url;
+          imgEl.alt = 'Community photo';
+          imgEl.loading = 'lazy';
+          imgEl.style.height = heights[(i + colIdx * 3) % heights.length] + 'px';
+          imgEl.onerror = () => { card.style.display = 'none'; };
+
+          card.appendChild(imgEl);
+          track.appendChild(card);
+        });
+
+        // Vary speed per column
+        const speedVariance = 0.7 + Math.random() * 0.6;
+        track.style.animationDuration = (40 * speedVariance) + 's';
+
+        col.appendChild(track);
+        container.appendChild(col);
+      });
+    }
+
+    // ─── Init & Poll ─────────────────────────────
+    async function init() {
+      const images = await fetchImages();
+      if (images) {
+        currentImages = images;
+        buildReels(images);
+      }
+    }
+
+    async function poll() {
+      const images = await fetchImages();
+      if (images && JSON.stringify(images.map(i=>i.id)) !== JSON.stringify(currentImages.map(i=>i.id))) {
+        currentImages = images;
+        buildReels(images);
+      }
+    }
+
+    init();
+    setInterval(poll, POLL_INTERVAL);
+
+    // Rebuild on resize
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => buildReels(currentImages), 300);
+    });
+  </script>
+</body>
+</html>
