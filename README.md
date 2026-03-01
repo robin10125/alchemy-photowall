@@ -1,31 +1,11 @@
 # PhotoWall — Rolling Photo Reel with Admin Moderation
 
-A community photo wall that displays approved images in hypnotic rolling columns. Users upload photos, admins approve or reject them, and approved images appear on a public display with smooth scrolling reels.
+A community photo wall that displays approved images in rolling columns. Users upload photos, admins approve or reject them, and approved images appear on a public display with smooth scrolling reels.
 
-## Architecture
+## Architecture 
+This app has 3 pages: an public wall displaying uploaded images, and upload page for users to upload their images, and an admin page where admins can approve or reject uploaded images.
+It uses AWS S3 buckets to store uploaded images.
 
-```
-┌─────────────┐     ┌──────────────┐     ┌─────────┐
-│  Public Wall │────▶│  Express API │────▶│ AWS S3  │
-│  (index.html)│     │  (server.js) │     │ Bucket  │
-└─────────────┘     └──────────────┘     └─────────┘
-                           ▲
-┌─────────────┐            │
-│ Upload Page  │───────────┤
-│ (upload.html)│            │
-└─────────────┘            │
-                           │
-┌─────────────┐            │
-│ Admin Panel  │───────────┘
-│ (admin.html) │
-└─────────────┘
-```
-
-**Key flows:**
-1. **User uploads** → image is processed (resized, optimized via Sharp) → stored in S3 → marked `pending`
-2. **Admin reviews** → sees only pending images → approves or rejects each one
-3. **Public display** → polls for approved images → renders in rolling reel columns
-4. **Rejected images** → deleted from S3 immediately, purged from memory
 
 ## Quick Start
 
@@ -109,34 +89,7 @@ npm start
 - Toast notifications for actions
 - Smooth card removal animations
 
-## API Endpoints
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/api/upload` | No | Upload a photo (multipart/form-data, field: `photo`) |
-| `GET` | `/api/images` | No | Get all approved image URLs |
-| `GET` | `/api/image/:id` | No | Serve full-size approved image (proxied from S3) |
-| `GET` | `/api/image/:id/thumb` | No | Serve thumbnail of approved image |
-| `GET` | `/api/admin/pending` | Basic | Get all pending images |
-| `GET` | `/api/admin/preview/:id` | Basic | Preview a pending image |
-| `POST` | `/api/admin/approve/:id` | Basic | Approve a pending image |
-| `POST` | `/api/admin/reject/:id` | Basic | Reject and delete a pending image |
-| `POST` | `/api/admin/bulk` | Basic | Bulk approve/reject `{ ids: [], action: "approve"|"reject" }` |
-| `GET` | `/api/admin/stats` | Basic | Get image count stats |
-
-## Scaling for 500 Concurrent Users
-
-The current architecture handles 500 users well:
-
-**Already built in:**
-- Rate limiting (120 API req/min globally, 10 uploads/15min per IP)
-- Image optimization (Sharp resizes to 1200px max, JPEG at 80% quality)
-- Thumbnail generation (400px wide for reel display)
-- S3 storage (infinitely scalable object storage)
-- Client-side polling at 8s intervals (not WebSockets, reduces server load)
-- In-memory image metadata (fast reads, no DB latency)
-- `Cache-Control` headers on served images
-
+ 
 **For production at scale, add:**
 
 1. **Replace in-memory store with a database:**
