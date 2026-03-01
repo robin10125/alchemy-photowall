@@ -1,5 +1,4 @@
-# PhotoWall — Rolling Photo Reel with Admin Moderation
-
+# Alchemy Photowall — Rolling Photo Reel For Alchemy
 A community photo wall that displays approved images in rolling columns. Users upload photos, admins approve or reject them, and approved images appear on a public display with smooth scrolling reels.
 
 ## Architecture 
