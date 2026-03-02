@@ -1,8 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
-const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, HeadObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
 const path = require('path');
 const cors = require('cors');
@@ -21,6 +20,7 @@ const S3_REGION = process.env.S3_REGION || 'us-east-1';
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'changeme123';
 const MAX_IMAGES = 1000;
+const APPROVAL_SIGNING_SECRET = process.env.APPROVAL_SIGNING_SECRET || ADMIN_PASSWORD;
 
 // ─── S3 Client ───────────────────────────────────────────────────
 const s3 = new S3Client({
@@ -33,6 +33,98 @@ const s3 = new S3Client({
 // Status: 'pending' | 'approved' | 'rejected'
 const images = new Map(); // id -> { id, key, originalName, uploadedAt, status, mimeType }
 let approvedOrder = []; // ordered list of approved image IDs for display
+
+function recordKeyForId(id) {
+  return `metadata/${id}.json`;
+}
+
+function recordSignature(record) {
+  const payload = [
+    record.id,
+    record.key,
+    record.thumbKey,
+    record.originalName,
+    record.uploadedAt,
+    record.status,
+    record.mimeType,
+    record.approvedAt || '',
+  ].join('|');
+
+  return crypto
+    .createHmac('sha256', APPROVAL_SIGNING_SECRET)
+    .update(payload)
+    .digest('hex');
+}
+
+function serializeRecord(img) {
+  const record = {
+    id: img.id,
+    key: img.key,
+    thumbKey: img.thumbKey,
+    originalName: img.originalName,
+    uploadedAt: img.uploadedAt,
+    status: img.status,
+    mimeType: img.mimeType,
+    approvedAt: img.approvedAt || null,
+  };
+
+  return {
+    ...record,
+    signature: recordSignature(record),
+  };
+}
+
+function deserializeRecord(raw) {
+  const {
+    signature,
+    id,
+    key,
+    thumbKey,
+    originalName,
+    uploadedAt,
+    status,
+    mimeType,
+    approvedAt,
+  } = raw || {};
+
+  if (!signature || !id || !key || !thumbKey || !uploadedAt || !status || !mimeType) {
+    return null;
+  }
+
+  const expected = recordSignature({
+    id,
+    key,
+    thumbKey,
+    originalName: originalName || `recovered-${id.slice(0, 8)}.jpg`,
+    uploadedAt,
+    status,
+    mimeType,
+    approvedAt: approvedAt || null,
+  });
+
+  if (expected !== signature) return null;
+
+  return {
+    id,
+    key,
+    thumbKey,
+    originalName: originalName || `recovered-${id.slice(0, 8)}.jpg`,
+    uploadedAt,
+    status,
+    mimeType,
+    approvedAt: approvedAt || null,
+  };
+}
+
+async function persistImageRecord(img) {
+  const record = serializeRecord(img);
+  await s3.send(new PutObjectCommand({
+    Bucket: S3_BUCKET,
+    Key: recordKeyForId(img.id),
+    Body: JSON.stringify(record),
+    ContentType: 'application/json',
+  }));
+}
 
 // ─── Rate Limiting ───────────────────────────────────────────────
 const uploadLimiter = rateLimit({
@@ -129,7 +221,10 @@ app.post('/api/upload', uploadLimiter, upload.single('photo'), async (req, res) 
       uploadedAt: new Date().toISOString(),
       status: 'pending',
       mimeType: 'image/jpeg',
+      approvedAt: null,
     });
+
+    await persistImageRecord(images.get(id));
 
     res.json({ success: true, id, message: 'Photo uploaded! It will appear after admin approval.' });
   } catch (err) {
@@ -242,7 +337,9 @@ app.post('/api/admin/approve/:id', adminAuth, async (req, res) => {
     if (img.status !== 'pending') return res.status(400).json({ error: 'Image is not pending.' });
 
     img.status = 'approved';
+    img.approvedAt = new Date().toISOString();
     approvedOrder.push(img.id);
+    await persistImageRecord(img);
 
     res.json({ success: true, message: 'Image approved.' });
   } catch (err) {
@@ -262,6 +359,8 @@ app.post('/api/admin/reject/:id', adminAuth, async (req, res) => {
     await s3.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: img.thumbKey }));
 
     img.status = 'rejected';
+    img.approvedAt = null;
+    await persistImageRecord(img);
     // Remove from map after a delay (or immediately)
     setTimeout(() => images.delete(img.id), 60000);
 
@@ -288,7 +387,9 @@ app.post('/api/admin/bulk', adminAuth, async (req, res) => {
 
     if (action === 'approve') {
       img.status = 'approved';
+      img.approvedAt = new Date().toISOString();
       approvedOrder.push(img.id);
+      await persistImageRecord(img);
       results.push({ id, success: true });
     } else {
       try {
@@ -296,6 +397,8 @@ app.post('/api/admin/bulk', adminAuth, async (req, res) => {
         await s3.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: img.thumbKey }));
       } catch (e) { /* continue */ }
       img.status = 'rejected';
+      img.approvedAt = null;
+      await persistImageRecord(img);
       setTimeout(() => images.delete(img.id), 60000);
       results.push({ id, success: true });
     }
@@ -332,17 +435,54 @@ app.listen(PORT, async () => {
   console.log(`   Upload page:    http://localhost:${PORT}/upload.html`);
 
   // ─── Re-sync images from S3 on startup ───────────────────────
-  // Since metadata is in-memory, we scan the bucket to recover state.
-  // Images found in S3 are loaded as 'pending' so admins can re-review.
   try {
-    console.log('   Scanning S3 bucket for existing images...');
+    console.log('   Scanning S3 bucket for persisted metadata...');
+    const metadataList = await s3.send(new ListObjectsV2Command({
+      Bucket: S3_BUCKET,
+      Prefix: 'metadata/',
+    }));
+
+    const metadataObjects = (metadataList.Contents || []).filter(obj => obj.Key !== 'metadata/');
+    let recoveredFromMetadata = 0;
+
+    for (const obj of metadataObjects) {
+      try {
+        const metadataResponse = await s3.send(new GetObjectCommand({
+          Bucket: S3_BUCKET,
+          Key: obj.Key,
+        }));
+        const content = await metadataResponse.Body.transformToString();
+        const parsed = JSON.parse(content);
+        const restored = deserializeRecord(parsed);
+        if (!restored) {
+          console.warn(`   ⚠ Ignored tampered or invalid metadata file: ${obj.Key}`);
+          continue;
+        }
+        images.set(restored.id, restored);
+        if (restored.status === 'approved') {
+          approvedOrder.push(restored.id);
+        }
+        recoveredFromMetadata++;
+      } catch (e) {
+        console.warn(`   ⚠ Failed to read metadata ${obj.Key}: ${e.message}`);
+      }
+    }
+
+    approvedOrder = approvedOrder
+      .map(id => images.get(id))
+      .filter(Boolean)
+      .sort((a, b) => new Date(a.approvedAt || a.uploadedAt) - new Date(b.approvedAt || b.uploadedAt))
+      .map(img => img.id);
+
+    console.log(`   ✓ Recovered ${recoveredFromMetadata} image record(s) from metadata`);
+
     const listRes = await s3.send(new ListObjectsV2Command({
       Bucket: S3_BUCKET,
       Prefix: 'uploads/',
     }));
 
     const objects = (listRes.Contents || []).filter(obj => obj.Key !== 'uploads/');
-    let recovered = 0;
+    let recoveredLegacy = 0;
 
     for (const obj of objects) {
       // Extract ID from key: uploads/{id}.jpg
@@ -364,14 +504,16 @@ app.listen(PORT, async () => {
         uploadedAt: obj.LastModified ? obj.LastModified.toISOString() : new Date().toISOString(),
         status: 'pending',
         mimeType: 'image/jpeg',
+        approvedAt: null,
       });
-      recovered++;
+      await persistImageRecord(images.get(id));
+      recoveredLegacy++;
     }
 
-    if (recovered > 0) {
-      console.log(`   ✓ Recovered ${recovered} image(s) from S3`);
+    if (recoveredLegacy > 0) {
+      console.log(`   ✓ Migrated ${recoveredLegacy} legacy image(s) to signed metadata records`);
     } else {
-      console.log('   ✓ No existing images found in S3');
+      console.log('   ✓ No legacy images found in S3');
     }
   } catch (err) {
     console.warn('   ⚠ Could not scan S3 bucket:', err.message);
