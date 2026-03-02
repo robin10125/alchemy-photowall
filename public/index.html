@@ -3,19 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Photo Wall</title>
+  <title>Alchemy Photo-Wall</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --bg: #0a0a0c;
-      --surface: #141418;
-      --text: #f0ede8;
-      --text-dim: #7a7872;
-      --accent: #e8c46c;
-      --accent-glow: rgba(232,196,108,0.15);
+      --bg: #050505;
+      --surface: #111111;
+      --text: #ffffff;
+      --text-dim: #b5b5b5;
+      --accent: #00e5ff;
+      --accent-2: #ff2ed1;
+      --highlight: #ffe24a;
+      --accent-glow: rgba(0,229,255,0.28);
       --col-gap: 6px;
       --reel-speed: 40s;
     }
@@ -23,7 +25,9 @@
     html, body {
       height: 100%;
       overflow: hidden;
-      background: var(--bg);
+      background: radial-gradient(circle at 14% 18%, rgba(0,229,255,0.22) 0%, rgba(0,229,255,0) 42%),
+                  radial-gradient(circle at 84% 80%, rgba(255,46,209,0.2) 0%, rgba(255,46,209,0) 42%),
+                  linear-gradient(160deg, #030303 0%, #090909 55%, #111111 100%);
       color: var(--text);
       font-family: 'Instrument Sans', sans-serif;
     }
@@ -37,7 +41,7 @@
       align-items: center;
       justify-content: space-between;
       padding: 16px 28px;
-      background: linear-gradient(180deg, rgba(10,10,12,0.95) 0%, rgba(10,10,12,0) 100%);
+      background: linear-gradient(180deg, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.22) 100%);
       pointer-events: none;
     }
     .topbar > * { pointer-events: auto; }
@@ -49,15 +53,22 @@
       letter-spacing: 0.04em;
       color: var(--text);
     }
-    .logo span { color: var(--accent); }
+    .logo .logo-main { color: #ffffff; }
+    .logo .logo-accent {
+      background: linear-gradient(90deg, var(--highlight), var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 18px rgba(255,226,74,0.2);
+    }
 
     .upload-btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
       padding: 10px 22px;
-      background: var(--accent);
-      color: var(--bg);
+      background: linear-gradient(90deg, var(--highlight), var(--accent), var(--accent-2));
+      color: #0a0a0a;
       font-family: 'Instrument Sans', sans-serif;
       font-weight: 700;
       font-size: 0.85rem;
@@ -181,7 +192,7 @@
       align-items: center;
       justify-content: center;
       padding: 24px;
-      background: rgba(8, 8, 10, 0.75);
+      background: rgba(0, 0, 0, 0.82);
       backdrop-filter: blur(8px);
       opacity: 0;
       pointer-events: none;
@@ -235,9 +246,9 @@
       transform: translateX(-50%);
       z-index: 100;
       padding: 8px 18px;
-      background: rgba(20,20,24,0.85);
+      background: rgba(8, 8, 8, 0.84);
       backdrop-filter: blur(12px);
-      border: 1px solid rgba(240,237,232,0.08);
+      border: 1px solid rgba(255, 226, 74, 0.28);
       border-radius: 20px;
       font-size: 0.75rem;
       color: var(--text-dim);
@@ -263,7 +274,7 @@
 
   <!-- Top Bar -->
   <header class="topbar">
-    <div class="logo">Photo<span>Wall</span></div>
+    <div class="logo"><span class="logo-main">Alchemy</span> <span class="logo-accent">Photo-Wall</span></div>
     <a href="/upload.html" class="upload-btn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <path d="M12 5v14M5 12h14"/>
