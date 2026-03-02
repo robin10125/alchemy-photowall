@@ -3,28 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Upload — PhotoWall</title>
+  <title>Upload — Alchemy Photo-Wall</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --bg: #0a0a0c;
-      --surface: #141418;
-      --surface-2: #1c1c22;
-      --border: rgba(240,237,232,0.08);
-      --text: #f0ede8;
-      --text-dim: #7a7872;
-      --accent: #e8c46c;
-      --accent-glow: rgba(232,196,108,0.15);
-      --green: #6ce88a;
-      --red: #e86c6c;
+      --bg: #050505;
+      --surface: rgba(18, 18, 18, 0.93);
+      --surface-2: rgba(26, 26, 26, 0.95);
+      --border: rgba(255, 226, 74, 0.26);
+      --text: #ffffff;
+      --text-dim: #bababa;
+      --accent: #00e5ff;
+      --accent-2: #ff2ed1;
+      --highlight: #ffe24a;
+      --accent-glow: rgba(0,229,255,0.3);
+      --green: #7df7cf;
+      --red: #ff70b7;
     }
 
     body {
       min-height: 100vh;
-      background: var(--bg);
+      background: radial-gradient(circle at 15% 18%, rgba(0,229,255,0.22) 0%, rgba(0,229,255,0) 42%),
+                  radial-gradient(circle at 84% 78%, rgba(255,46,209,0.2) 0%, rgba(255,46,209,0) 44%),
+                  linear-gradient(160deg, #030303 0%, #090909 55%, #111111 100%);
       color: var(--text);
       font-family: 'Instrument Sans', sans-serif;
       display: flex;
@@ -53,7 +57,14 @@
       color: var(--text);
       margin-bottom: 8px;
     }
-    .logo span { color: var(--accent); }
+    .logo .logo-main { color: #ffffff; }
+    .logo .logo-accent {
+      background: linear-gradient(90deg, var(--highlight), var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 18px rgba(255,226,74,0.2);
+    }
     .subtitle {
       color: var(--text-dim);
       font-size: 0.9rem;
@@ -74,7 +85,7 @@
     }
     .drop-zone:hover, .drop-zone.dragover {
       border-color: var(--accent);
-      background: rgba(232,196,108,0.03);
+      background: rgba(255,46,209,0.08);
     }
     .drop-zone.dragover {
       transform: scale(1.01);
@@ -161,8 +172,8 @@
       width: 100%;
       margin-top: 20px;
       padding: 14px 24px;
-      background: var(--accent);
-      color: var(--bg);
+      background: linear-gradient(90deg, var(--highlight), var(--accent), var(--accent-2));
+      color: #0a0a0a;
       border: none;
       border-radius: 10px;
       font-family: inherit;
@@ -238,7 +249,7 @@
     .rules {
       margin-top: 32px;
       padding: 20px;
-      background: var(--surface);
+      background: linear-gradient(155deg, rgba(32,32,32,0.9) 0%, rgba(18,18,18,0.9) 100%);
       border-radius: 10px;
       border: 1px solid var(--border);
     }
@@ -274,7 +285,7 @@
   <div class="upload-container">
     <div class="header">
       <a href="/">
-        <div class="logo">Photo<span>Wall</span></div>
+        <div class="logo"><span class="logo-main">Alchemy</span> <span class="logo-accent">Photo-Wall</span></div>
       </a>
       <p class="subtitle">Upload a photo to the community wall.<br>It'll appear after a quick review.</p>
     </div>
