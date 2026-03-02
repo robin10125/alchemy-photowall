@@ -88,22 +88,24 @@
 
     /* ─── Reel Container ────────────────────────── */
     .reels-container {
-      display: flex;
-      gap: var(--col-gap);
+      position: relative;
       height: 100vh;
       padding: 0 var(--col-gap);
       overflow: hidden;
     }
 
-    .reel-column {
-      flex: 1;
-      overflow: hidden;
+    .reel-stream {
       position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: var(--col-gap);
+      will-change: transform;
+      animation: scrollUp var(--reel-speed) linear infinite;
     }
 
     /* Fade edges */
-    .reel-column::before,
-    .reel-column::after {
+    .reels-container::before,
+    .reels-container::after {
       content: '';
       position: absolute;
       left: 0; right: 0;
@@ -111,54 +113,42 @@
       z-index: 2;
       pointer-events: none;
     }
-    .reel-column::before {
+    .reels-container::before {
       top: 0;
       background: linear-gradient(180deg, var(--bg) 0%, transparent 100%);
     }
-    .reel-column::after {
+    .reels-container::after {
       bottom: 0;
       background: linear-gradient(0deg, var(--bg) 0%, transparent 100%);
     }
 
-    .reel-track {
-      display: flex;
-      flex-direction: column;
+    .reel-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--columns, 5), minmax(0, 1fr));
       gap: var(--col-gap);
-      will-change: transform;
     }
 
-    .reels-container.is-paused .reel-track {
+    .reels-container.is-paused .reel-stream {
       animation-play-state: paused;
-    }
-
-    /* Scroll animation — alternating directions */
-    .reel-column:nth-child(odd) .reel-track {
-      animation: scrollUp var(--reel-speed) linear infinite;
-    }
-    .reel-column:nth-child(even) .reel-track {
-      animation: scrollDown var(--reel-speed) linear infinite;
     }
 
     @keyframes scrollUp {
       0% { transform: translateY(0); }
       100% { transform: translateY(-50%); }
     }
-    @keyframes scrollDown {
-      0% { transform: translateY(-50%); }
-      100% { transform: translateY(0); }
-    }
-
     /* ─── Photo Cards ───────────────────────────── */
     .photo-card {
       border-radius: 4px;
       overflow: hidden;
       position: relative;
       background: var(--surface);
+      grid-column: span var(--col-span, 1);
     }
     .photo-card img {
       width: 100%;
+      height: auto;
       display: block;
-      object-fit: cover;
+      object-fit: contain;
       transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
     }
     .photo-card:hover img {
@@ -259,8 +249,8 @@
 
     /* ─── Responsive ────────────────────────────── */
     @media (max-width: 900px) {
-      .reels-container { gap: 4px; padding: 0 4px; }
-      .reel-track { gap: 4px; }
+      .reels-container { padding: 0 4px; }
+      .reel-grid, .reel-stream { gap: 4px; }
     }
     @media (max-width: 600px) {
       :root { --reel-speed: 30s; }
@@ -303,7 +293,9 @@
   </div>
 
   <script>
-    const NUM_COLUMNS = window.innerWidth < 600 ? 3 : window.innerWidth < 900 ? 4 : 5;
+    function getColumnCount() {
+      return window.innerWidth < 600 ? 3 : window.innerWidth < 900 ? 4 : 5;
+    }
     const POLL_INTERVAL = 8000; // poll every 8s
     const API_BASE = '';
 
@@ -387,28 +379,23 @@
       document.getElementById('photoCount').style.display = 'block';
       document.getElementById('countNum').textContent = images.length;
 
-      // Distribute images into columns
-      const columns = Array.from({ length: NUM_COLUMNS }, () => []);
-      images.forEach((img, i) => {
-        columns[i % NUM_COLUMNS].push(img);
-      });
+      const columnCount = getColumnCount();
+      container.style.setProperty('--columns', columnCount);
 
-      columns.forEach((colImages, colIdx) => {
-        if (colImages.length === 0) return;
+      const stream = document.createElement('div');
+      stream.className = 'reel-stream';
 
-        const col = document.createElement('div');
-        col.className = 'reel-column';
+      const firstPass = document.createElement('div');
+      firstPass.className = 'reel-grid';
 
-        const track = document.createElement('div');
-        track.className = 'reel-track';
+      const secondPass = document.createElement('div');
+      secondPass.className = 'reel-grid';
+      secondPass.setAttribute('aria-hidden', 'true');
 
-        // Duplicate images for seamless loop
-        const allImages = [...colImages, ...colImages];
+      const allGrids = [firstPass, secondPass];
 
-        // Vary heights for visual interest
-        const heights = [260, 320, 200, 380, 280, 340, 220, 300];
-
-        allImages.forEach((img, i) => {
+      images.forEach((img) => {
+        allGrids.forEach((grid) => {
           const card = document.createElement('div');
           card.className = 'photo-card';
 
@@ -416,8 +403,20 @@
           imgEl.src = img.thumbUrl || img.url;
           imgEl.alt = 'Community photo';
           imgEl.loading = 'lazy';
-          imgEl.style.height = heights[(i + colIdx * 3) % heights.length] + 'px';
           imgEl.onerror = () => { card.style.display = 'none'; };
+
+          imgEl.addEventListener('load', () => {
+            const aspectRatio = imgEl.naturalWidth / Math.max(imgEl.naturalHeight, 1);
+            let colSpan = 1;
+
+            if (aspectRatio >= 2.4) {
+              colSpan = Math.min(3, columnCount);
+            } else if (aspectRatio >= 1.6) {
+              colSpan = Math.min(2, columnCount);
+            }
+
+            card.style.setProperty('--col-span', colSpan);
+          });
 
           card.addEventListener('mouseenter', () => {
             if (!isTouchDevice) openPreview(card, img, false);
@@ -437,16 +436,18 @@
           });
 
           card.appendChild(imgEl);
-          track.appendChild(card);
+          grid.appendChild(card);
         });
-
-        // Vary speed per column
-        const speedVariance = 0.7 + Math.random() * 0.6;
-        track.style.animationDuration = (40 * speedVariance) + 's';
-
-        col.appendChild(track);
-        container.appendChild(col);
       });
+
+      stream.appendChild(firstPass);
+      stream.appendChild(secondPass);
+
+      // Vary speed a little on each rebuild
+      const speedVariance = 0.85 + Math.random() * 0.3;
+      stream.style.animationDuration = (42 * speedVariance) + 's';
+
+      container.appendChild(stream);
     }
 
     // ─── Init & Poll ─────────────────────────────
