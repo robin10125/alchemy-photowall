@@ -20,6 +20,7 @@
       --accent-glow: rgba(0,229,255,0.28);
       --col-gap: 6px;
       --reel-speed: 40s;
+      --photo-max-height: 33vh;
     }
 
     html, body {
@@ -94,6 +95,19 @@
       overflow: hidden;
     }
 
+    .reel-columns {
+      display: grid;
+      grid-template-columns: repeat(var(--columns, 5), minmax(0, 1fr));
+      gap: var(--col-gap);
+      height: 100%;
+    }
+
+    .reel-column {
+      position: relative;
+      overflow: hidden;
+      min-width: 0;
+    }
+
     .reel-stream {
       position: relative;
       display: flex;
@@ -101,6 +115,10 @@
       gap: var(--col-gap);
       will-change: transform;
       animation: scrollUp var(--reel-speed) linear infinite;
+    }
+
+    .reel-column[data-direction="down"] .reel-stream {
+      animation-name: scrollDown;
     }
 
     /* Fade edges */
@@ -122,9 +140,9 @@
       background: linear-gradient(0deg, var(--bg) 0%, transparent 100%);
     }
 
-    .reel-grid {
-      display: grid;
-      grid-template-columns: repeat(var(--columns, 5), minmax(0, 1fr));
+    .reel-stack {
+      display: flex;
+      flex-direction: column;
       gap: var(--col-gap);
     }
 
@@ -136,23 +154,45 @@
       0% { transform: translateY(0); }
       100% { transform: translateY(-50%); }
     }
+    @keyframes scrollDown {
+      0% { transform: translateY(-50%); }
+      100% { transform: translateY(0); }
+    }
     /* ─── Photo Cards ───────────────────────────── */
     .photo-card {
       border-radius: 4px;
       overflow: hidden;
       position: relative;
       background: var(--surface);
-      grid-column: span var(--col-span, 1);
+      width: 100%;
+      height: var(--card-height);
+      max-height: var(--photo-max-height);
     }
     .photo-card img {
       width: 100%;
-      height: auto;
+      height: 100%;
       display: block;
-      object-fit: contain;
+      object-fit: cover;
+      object-position: center;
       transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
     }
+
+    .photo-card[data-crop='portrait'] img,
+    .photo-card[data-crop='portrait-clamp'] img,
+    .photo-card[data-crop='landscape-focus'] img,
+    .photo-card[data-crop='landscape-wide'] img {
+      object-fit: cover;
+    }
+
+    .photo-card[data-crop='landscape-focus'] img {
+      transform: scale(1.06);
+    }
+
+    .photo-card[data-crop='landscape-wide'] img {
+      transform: scale(1.12);
+    }
     .photo-card:hover img {
-      transform: scale(1.04);
+      transform: scale(var(--hover-scale, 1.04));
     }
 
     .photo-card.is-active {
@@ -160,7 +200,7 @@
     }
 
     .photo-card.is-active img {
-      transform: scale(1.07);
+      transform: scale(var(--active-scale, 1.07));
     }
 
     /* Subtle shine on hover */
@@ -250,7 +290,7 @@
     /* ─── Responsive ────────────────────────────── */
     @media (max-width: 900px) {
       .reels-container { padding: 0 4px; }
-      .reel-grid, .reel-stream { gap: 4px; }
+      .reel-columns, .reel-stack, .reel-stream { gap: 4px; }
     }
     @media (max-width: 600px) {
       :root { --reel-speed: 30s; }
@@ -305,6 +345,47 @@
     const photoPreviewImg = document.getElementById('photoPreviewImg');
     const isTouchDevice = window.matchMedia('(hover: none), (pointer: coarse)').matches;
     let activeCard = null;
+
+    function getColumnDirection(columnIndex, columnCount) {
+      const middleIndex = Math.floor(columnCount / 2);
+      return Math.abs(columnIndex - middleIndex) % 2 === 0 ? 'up' : 'down';
+    }
+
+    function getCardLayout(naturalWidth, naturalHeight, cardWidth) {
+      const viewportMaxHeight = Math.max(window.innerHeight * 0.33, 140);
+      const safeHeight = Math.max(naturalHeight, 1);
+      const aspectRatio = naturalWidth / safeHeight;
+      const safeWidth = Math.max(cardWidth, 1);
+      const baseHeight = safeWidth / Math.max(aspectRatio, 0.01);
+      const layout = {
+        crop: 'portrait',
+        cardHeight: Math.min(baseHeight, viewportMaxHeight),
+        hoverScale: 1.04,
+        activeScale: 1.07,
+      };
+
+      if (aspectRatio < 1) {
+        if (baseHeight > viewportMaxHeight) {
+          layout.crop = 'portrait-clamp';
+          layout.cardHeight = viewportMaxHeight;
+        }
+        return layout;
+      }
+
+      layout.crop = 'landscape-focus';
+      layout.hoverScale = 1.08;
+      layout.activeScale = 1.12;
+      layout.cardHeight = Math.min(baseHeight * 1.12, viewportMaxHeight);
+
+      if (aspectRatio >= 1.8) {
+        layout.crop = 'landscape-wide';
+        layout.hoverScale = 1.12;
+        layout.activeScale = 1.16;
+        layout.cardHeight = Math.min(baseHeight * 1.22, viewportMaxHeight);
+      }
+
+      return layout;
+    }
 
     function setReelsPaused(shouldPause) {
       container.classList.toggle('is-paused', shouldPause);
@@ -382,72 +463,84 @@
       const columnCount = getColumnCount();
       container.style.setProperty('--columns', columnCount);
 
-      const stream = document.createElement('div');
-      stream.className = 'reel-stream';
-
-      const firstPass = document.createElement('div');
-      firstPass.className = 'reel-grid';
-
-      const secondPass = document.createElement('div');
-      secondPass.className = 'reel-grid';
-      secondPass.setAttribute('aria-hidden', 'true');
-
-      const allGrids = [firstPass, secondPass];
-
-      images.forEach((img) => {
-        allGrids.forEach((grid) => {
-          const card = document.createElement('div');
-          card.className = 'photo-card';
-
-          const imgEl = document.createElement('img');
-          imgEl.src = img.thumbUrl || img.url;
-          imgEl.alt = 'Community photo';
-          imgEl.loading = 'lazy';
-          imgEl.onerror = () => { card.style.display = 'none'; };
-
-          imgEl.addEventListener('load', () => {
-            const aspectRatio = imgEl.naturalWidth / Math.max(imgEl.naturalHeight, 1);
-            let colSpan = 1;
-
-            if (aspectRatio >= 2.4) {
-              colSpan = Math.min(3, columnCount);
-            } else if (aspectRatio >= 1.6) {
-              colSpan = Math.min(2, columnCount);
-            }
-
-            card.style.setProperty('--col-span', colSpan);
-          });
-
-          card.addEventListener('mouseenter', () => {
-            if (!isTouchDevice) openPreview(card, img, false);
-          });
-
-          card.addEventListener('mouseleave', () => {
-            if (!isTouchDevice && photoPreview.dataset.locked !== 'true') closePreview();
-          });
-
-          card.addEventListener('click', () => {
-            const isAlreadyActive = activeCard === card && photoPreview.classList.contains('is-visible');
-            if (isAlreadyActive && photoPreview.dataset.locked === 'true') {
-              closePreview();
-              return;
-            }
-            openPreview(card, img, true);
-          });
-
-          card.appendChild(imgEl);
-          grid.appendChild(card);
-        });
+      const columns = Array.from({ length: columnCount }, () => []);
+      images.forEach((img, index) => {
+        columns[index % columnCount].push(img);
       });
 
-      stream.appendChild(firstPass);
-      stream.appendChild(secondPass);
+      const columnsWrap = document.createElement('div');
+      columnsWrap.className = 'reel-columns';
 
-      // Vary speed a little on each rebuild
-      const speedVariance = 0.85 + Math.random() * 0.3;
-      stream.style.animationDuration = (42 * speedVariance) + 's';
+      columns.forEach((columnImages, columnIndex) => {
+        const reelColumn = document.createElement('div');
+        reelColumn.className = 'reel-column';
+        reelColumn.dataset.direction = getColumnDirection(columnIndex, columnCount);
 
-      container.appendChild(stream);
+        const stream = document.createElement('div');
+        stream.className = 'reel-stream';
+
+        const firstPass = document.createElement('div');
+        firstPass.className = 'reel-stack';
+
+        const secondPass = document.createElement('div');
+        secondPass.className = 'reel-stack';
+        secondPass.setAttribute('aria-hidden', 'true');
+
+        const sourceImages = columnImages.length ? columnImages : images;
+
+        [firstPass, secondPass].forEach((stack) => {
+          sourceImages.forEach((img) => {
+            const card = document.createElement('div');
+            card.className = 'photo-card';
+
+            const imgEl = document.createElement('img');
+            imgEl.src = img.thumbUrl || img.url;
+            imgEl.alt = 'Community photo';
+            imgEl.loading = 'lazy';
+            imgEl.onerror = () => { card.style.display = 'none'; };
+
+            imgEl.addEventListener('load', () => {
+              const cardWidth = card.getBoundingClientRect().width;
+              const layout = getCardLayout(imgEl.naturalWidth, imgEl.naturalHeight, cardWidth);
+              card.dataset.crop = layout.crop;
+              card.style.setProperty('--card-height', `${Math.round(layout.cardHeight)}px`);
+              card.style.setProperty('--hover-scale', layout.hoverScale);
+              card.style.setProperty('--active-scale', layout.activeScale);
+            });
+
+            card.addEventListener('mouseenter', () => {
+              if (!isTouchDevice) openPreview(card, img, false);
+            });
+
+            card.addEventListener('mouseleave', () => {
+              if (!isTouchDevice && photoPreview.dataset.locked !== 'true') closePreview();
+            });
+
+            card.addEventListener('click', () => {
+              const isAlreadyActive = activeCard === card && photoPreview.classList.contains('is-visible');
+              if (isAlreadyActive && photoPreview.dataset.locked === 'true') {
+                closePreview();
+                return;
+              }
+              openPreview(card, img, true);
+            });
+
+            card.appendChild(imgEl);
+            stack.appendChild(card);
+          });
+        });
+
+        stream.appendChild(firstPass);
+        stream.appendChild(secondPass);
+
+        const speedVariance = 0.88 + Math.random() * 0.24;
+        stream.style.animationDuration = `${Math.round((44 + columnIndex * 2) * speedVariance)}s`;
+
+        reelColumn.appendChild(stream);
+        columnsWrap.appendChild(reelColumn);
+      });
+
+      container.appendChild(columnsWrap);
     }
 
     // ─── Init & Poll ─────────────────────────────
