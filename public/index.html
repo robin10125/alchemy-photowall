@@ -178,10 +178,25 @@
     }
 
     .photo-card[data-crop='portrait'] img,
-    .photo-card[data-crop='portrait-clamp'] img,
     .photo-card[data-crop='landscape-focus'] img,
     .photo-card[data-crop='landscape-wide'] img {
       object-fit: cover;
+    }
+
+    .photo-card[data-crop='portrait-clamp'] img {
+      object-fit: cover;
+    }
+
+    .photo-card[data-crop='portrait'] {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .photo-card[data-crop='portrait'] img {
+      width: auto;
+      max-width: 100%;
+      object-fit: contain;
     }
 
     .photo-card[data-crop='landscape-focus'] img {
