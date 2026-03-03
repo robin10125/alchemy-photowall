@@ -191,10 +191,6 @@
     .photo-card[data-crop='landscape-wide'] img {
       transform: scale(1.12);
     }
-    .photo-card:hover img {
-      transform: scale(var(--hover-scale, 1.04));
-    }
-
     .photo-card.is-active {
       z-index: 120;
     }
@@ -203,7 +199,7 @@
       transform: scale(var(--active-scale, 1.07));
     }
 
-    /* Subtle shine on hover */
+    /* Subtle shine overlay */
     .photo-card::after {
       content: '';
       position: absolute;
@@ -212,8 +208,6 @@
       opacity: 0;
       transition: opacity 0.4s;
     }
-    .photo-card:hover::after { opacity: 1; }
-
     /* ─── Photo Preview ─────────────────────────── */
     .photo-preview {
       position: fixed;
@@ -334,7 +328,7 @@
 
   <script>
     function getColumnCount() {
-      return window.innerWidth < 600 ? 3 : window.innerWidth < 900 ? 4 : 5;
+      return 3;
     }
     const POLL_INTERVAL = 8000; // poll every 8s
     const API_BASE = '';
@@ -343,7 +337,6 @@
     let container = document.getElementById('reelsContainer');
     const photoPreview = document.getElementById('photoPreview');
     const photoPreviewImg = document.getElementById('photoPreviewImg');
-    const isTouchDevice = window.matchMedia('(hover: none), (pointer: coarse)').matches;
     let activeCard = null;
 
     function getColumnDirection(columnIndex, columnCount) {
@@ -360,7 +353,6 @@
       const layout = {
         crop: 'portrait',
         cardHeight: Math.min(baseHeight, viewportMaxHeight),
-        hoverScale: 1.04,
         activeScale: 1.07,
       };
 
@@ -373,13 +365,11 @@
       }
 
       layout.crop = 'landscape-focus';
-      layout.hoverScale = 1.08;
       layout.activeScale = 1.12;
       layout.cardHeight = Math.min(baseHeight * 1.12, viewportMaxHeight);
 
       if (aspectRatio >= 1.8) {
         layout.crop = 'landscape-wide';
-        layout.hoverScale = 1.12;
         layout.activeScale = 1.16;
         layout.cardHeight = Math.min(baseHeight * 1.22, viewportMaxHeight);
       }
@@ -504,16 +494,7 @@
               const layout = getCardLayout(imgEl.naturalWidth, imgEl.naturalHeight, cardWidth);
               card.dataset.crop = layout.crop;
               card.style.setProperty('--card-height', `${Math.round(layout.cardHeight)}px`);
-              card.style.setProperty('--hover-scale', layout.hoverScale);
               card.style.setProperty('--active-scale', layout.activeScale);
-            });
-
-            card.addEventListener('mouseenter', () => {
-              if (!isTouchDevice) openPreview(card, img, false);
-            });
-
-            card.addEventListener('mouseleave', () => {
-              if (!isTouchDevice && photoPreview.dataset.locked !== 'true') closePreview();
             });
 
             card.addEventListener('click', () => {
