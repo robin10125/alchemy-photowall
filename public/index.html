@@ -327,8 +327,14 @@
   </div>
 
   <script>
+    const DESKTOP_BREAKPOINT = 1024;
+
+    function isDesktopLayout() {
+      return window.innerWidth >= DESKTOP_BREAKPOINT;
+    }
+
     function getColumnCount() {
-      return 3;
+      return isDesktopLayout() ? 4 : 3;
     }
     const POLL_INTERVAL = 8000; // poll every 8s
     const API_BASE = '';
@@ -340,6 +346,8 @@
     let activeCard = null;
 
     function getColumnDirection(columnIndex, columnCount) {
+      if (isDesktopLayout()) return 'down';
+
       const middleIndex = Math.floor(columnCount / 2);
       return Math.abs(columnIndex - middleIndex) % 2 === 0 ? 'up' : 'down';
     }
@@ -514,8 +522,11 @@
         stream.appendChild(firstPass);
         stream.appendChild(secondPass);
 
-        const speedVariance = 0.88 + Math.random() * 0.24;
-        stream.style.animationDuration = `${Math.round((44 + columnIndex * 2) * speedVariance)}s`;
+        const baseDuration = isDesktopLayout() ? 42 : 44 + columnIndex * 2;
+        const speedVariance = isDesktopLayout()
+          ? 0.9 + Math.random() * 0.18
+          : 0.88 + Math.random() * 0.24;
+        stream.style.animationDuration = `${Math.round(baseDuration * speedVariance)}s`;
 
         reelColumn.appendChild(stream);
         columnsWrap.appendChild(reelColumn);
