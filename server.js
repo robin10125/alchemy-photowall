@@ -181,16 +181,16 @@ app.post('/api/upload', uploadLimiter, upload.single('photo'), async (req, res) 
       return res.status(400).json({ error: 'Maximum image capacity reached.' });
     }
 
-    // Process image with sharp — resize to max 1200px wide, optimize
+    // Process image for lightbox preview — keep higher detail for large displays
     const processed = await sharp(req.file.buffer)
-      .resize(1200, 1600, { fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: 80 })
+      .resize(2000, 2600, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 85 })
       .toBuffer();
 
-    // Generate thumbnail
+    // Generate photowall card preview image at a higher resolution to reduce blur
     const thumbnail = await sharp(req.file.buffer)
-      .resize(400, 600, { fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: 70 })
+      .resize(900, 1350, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 80 })
       .toBuffer();
 
     const id = crypto.randomUUID();
