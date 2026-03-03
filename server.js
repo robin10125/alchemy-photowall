@@ -2,8 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const multer = require('multer');
 const { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const crypto = require('crypto');
-const path = require('path');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const sharp = require('sharp');
@@ -21,6 +21,7 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'changeme123';
 const MAX_IMAGES = 1000;
 const APPROVAL_SIGNING_SECRET = process.env.APPROVAL_SIGNING_SECRET || ADMIN_PASSWORD;
+const S3_SIGNED_URL_TTL_SECONDS = Number(process.env.S3_SIGNED_URL_TTL_SECONDS || 3600);
 
 // ─── S3 Client ───────────────────────────────────────────────────
 const s3 = new S3Client({
@@ -124,6 +125,23 @@ async function persistImageRecord(img) {
     Body: JSON.stringify(record),
     ContentType: 'application/json',
   }));
+}
+
+async function createSignedImageUrls(img) {
+  const [url, thumbUrl] = await Promise.all([
+    getSignedUrl(s3, new GetObjectCommand({ Bucket: S3_BUCKET, Key: img.key }), {
+      expiresIn: S3_SIGNED_URL_TTL_SECONDS,
+    }),
+    getSignedUrl(s3, new GetObjectCommand({ Bucket: S3_BUCKET, Key: img.thumbKey }), {
+      expiresIn: S3_SIGNED_URL_TTL_SECONDS,
+    }),
+  ]);
+
+  return {
+    id: img.id,
+    url,
+    thumbUrl,
+  };
 }
 
 // ─── Rate Limiting ───────────────────────────────────────────────
@@ -236,14 +254,10 @@ app.post('/api/upload', uploadLimiter, upload.single('photo'), async (req, res) 
 // ─── PUBLIC: Get approved images ─────────────────────────────────
 app.get('/api/images', async (req, res) => {
   try {
-    const approved = approvedOrder
+    const approved = await Promise.all(approvedOrder
       .map(id => images.get(id))
       .filter(Boolean)
-      .map(img => ({
-        id: img.id,
-        url: `/api/image/${img.id}`,
-        thumbUrl: `/api/image/${img.id}/thumb`,
-      }));
+      .map(img => createSignedImageUrls(img)));
 
     res.json({ images: approved, total: approved.length });
   } catch (err) {
@@ -252,80 +266,26 @@ app.get('/api/images', async (req, res) => {
   }
 });
 
-// ─── PUBLIC: Serve image (proxied from S3) ───────────────────────
-app.get('/api/image/:id', async (req, res) => {
-  try {
-    const img = images.get(req.params.id);
-    if (!img || img.status !== 'approved') {
-      return res.status(404).json({ error: 'Image not found' });
-    }
-
-    const command = new GetObjectCommand({ Bucket: S3_BUCKET, Key: img.key });
-    const s3Response = await s3.send(command);
-
-    res.set('Content-Type', img.mimeType);
-    res.set('Cache-Control', 'public, max-age=3600');
-    s3Response.Body.pipe(res);
-  } catch (err) {
-    console.error('Image serve error:', err);
-    res.status(500).json({ error: 'Failed to load image.' });
-  }
-});
-
-// ─── PUBLIC: Serve thumbnail ─────────────────────────────────────
-app.get('/api/image/:id/thumb', async (req, res) => {
-  try {
-    const img = images.get(req.params.id);
-    if (!img || img.status !== 'approved') {
-      return res.status(404).json({ error: 'Image not found' });
-    }
-
-    const command = new GetObjectCommand({ Bucket: S3_BUCKET, Key: img.thumbKey });
-    const s3Response = await s3.send(command);
-
-    res.set('Content-Type', img.mimeType);
-    res.set('Cache-Control', 'public, max-age=3600');
-    s3Response.Body.pipe(res);
-  } catch (err) {
-    console.error('Thumbnail serve error:', err);
-    res.status(500).json({ error: 'Failed to load thumbnail.' });
-  }
-});
-
 // ─── ADMIN: Get pending images ───────────────────────────────────
 app.get('/api/admin/pending', adminAuth, async (req, res) => {
   try {
-    const pending = [...images.values()]
+    const pendingBase = [...images.values()]
       .filter(img => img.status === 'pending')
-      .sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt))
-      .map(img => ({
+      .sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt));
+
+    const pending = await Promise.all(pendingBase.map(async (img) => {
+      const { url: previewUrl } = await createSignedImageUrls(img);
+      return {
         id: img.id,
         originalName: img.originalName,
         uploadedAt: img.uploadedAt,
-        previewUrl: `/api/admin/preview/${img.id}`,
-      }));
+        previewUrl,
+      };
+    }));
 
     res.json({ images: pending, total: pending.length });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load pending images.' });
-  }
-});
-
-// ─── ADMIN: Preview pending image ────────────────────────────────
-app.get('/api/admin/preview/:id', adminAuth, async (req, res) => {
-  try {
-    const img = images.get(req.params.id);
-    if (!img || img.status !== 'pending') {
-      return res.status(404).json({ error: 'Image not found' });
-    }
-
-    const command = new GetObjectCommand({ Bucket: S3_BUCKET, Key: img.key });
-    const s3Response = await s3.send(command);
-
-    res.set('Content-Type', img.mimeType);
-    s3Response.Body.pipe(res);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to load preview.' });
   }
 });
 

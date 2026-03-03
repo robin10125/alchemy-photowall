@@ -103,9 +103,8 @@ npm start
    ```
    This offloads image serving entirely from your server.
 
-3. **Use S3 presigned URLs** instead of proxying through Express:
+3. **Keep using S3 presigned URLs** (already enabled):
    ```js
-   // Already imported in server.js — just enable:
    const url = await getSignedUrl(s3, new GetObjectCommand({...}), { expiresIn: 3600 });
    ```
 

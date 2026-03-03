@@ -562,23 +562,6 @@
     }
 
     // ─── Render Pending Grid ─────────────────────
-    // Cache for authenticated blob URLs so we don't re-fetch on every render
-    const blobUrlCache = new Map();
-
-    async function fetchAuthImage(url) {
-      if (blobUrlCache.has(url)) return blobUrlCache.get(url);
-      try {
-        const res = await fetch(url, { headers: { 'Authorization': getAuthHeader() } });
-        if (!res.ok) return '';
-        const blob = await res.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        blobUrlCache.set(url, blobUrl);
-        return blobUrl;
-      } catch (e) {
-        return '';
-      }
-    }
-
     function renderPending() {
       const grid = document.getElementById('pendingGrid');
       const empty = document.getElementById('emptyPending');
@@ -608,14 +591,10 @@
         </div>
       `).join('');
 
-      // Load images with auth headers
-      grid.querySelectorAll('img[data-preview-url]').forEach(async (imgEl) => {
+      grid.querySelectorAll('img[data-preview-url]').forEach((imgEl) => {
         const url = imgEl.dataset.previewUrl;
-        const blobUrl = await fetchAuthImage(url);
-        if (blobUrl) {
-          imgEl.src = blobUrl;
-          imgEl.onclick = () => openLightbox(blobUrl);
-        }
+        imgEl.src = url;
+        imgEl.onclick = () => openLightbox(url);
       });
 
       // Checkbox events
