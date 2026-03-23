@@ -165,46 +165,14 @@
       position: relative;
       background: var(--surface);
       width: 100%;
-      height: var(--card-height);
-      max-height: var(--photo-max-height);
     }
     .photo-card img {
       width: 100%;
-      height: 100%;
+      height: auto;
       display: block;
-      object-fit: cover;
+      object-fit: contain;
       object-position: center;
       transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    .photo-card[data-crop='portrait'] img,
-    .photo-card[data-crop='landscape-focus'] img,
-    .photo-card[data-crop='landscape-wide'] img {
-      object-fit: cover;
-    }
-
-    .photo-card[data-crop='portrait-clamp'] img {
-      object-fit: cover;
-    }
-
-    .photo-card[data-crop='portrait'] {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .photo-card[data-crop='portrait'] img {
-      width: auto;
-      max-width: 100%;
-      object-fit: contain;
-    }
-
-    .photo-card[data-crop='landscape-focus'] img {
-      transform: scale(1.06);
-    }
-
-    .photo-card[data-crop='landscape-wide'] img {
-      transform: scale(1.12);
     }
     .photo-card.is-active {
       z-index: 120;
@@ -368,36 +336,23 @@
     }
 
     function getCardLayout(naturalWidth, naturalHeight, cardWidth) {
-      const viewportMaxHeight = Math.max(window.innerHeight * 0.33, 140);
       const safeHeight = Math.max(naturalHeight, 1);
-      const aspectRatio = naturalWidth / safeHeight;
       const safeWidth = Math.max(cardWidth, 1);
+      const aspectRatio = naturalWidth / safeHeight;
       const baseHeight = safeWidth / Math.max(aspectRatio, 0.01);
-      const layout = {
-        crop: 'portrait',
-        cardHeight: Math.min(baseHeight, viewportMaxHeight),
-        activeScale: 1.07,
+      const maxHeight = Math.max(window.innerHeight * 0.4, 180);
+
+      return {
+        cardHeight: Math.min(baseHeight, maxHeight),
+        activeScale: 1.04,
       };
+    }
 
-      if (aspectRatio < 1) {
-        if (baseHeight > viewportMaxHeight) {
-          layout.crop = 'portrait-clamp';
-          layout.cardHeight = viewportMaxHeight;
-        }
-        return layout;
-      }
-
-      layout.crop = 'landscape-focus';
-      layout.activeScale = 1.12;
-      layout.cardHeight = Math.min(baseHeight * 1.12, viewportMaxHeight);
-
-      if (aspectRatio >= 1.8) {
-        layout.crop = 'landscape-wide';
-        layout.activeScale = 1.16;
-        layout.cardHeight = Math.min(baseHeight * 1.22, viewportMaxHeight);
-      }
-
-      return layout;
+    function getColumnAnimationDuration(columnIndex, columnCount) {
+      const baseDuration = isDesktopLayout() ? 40 : 36;
+      const centerBias = Math.abs(columnIndex - (columnCount - 1) / 2) * 0.9;
+      const indexVariance = (columnIndex % 2 === 0 ? 1 : -1) * 1.6;
+      return Math.max(28, baseDuration + centerBias + indexVariance);
     }
 
     function setReelsPaused(shouldPause) {
@@ -515,8 +470,8 @@
             imgEl.addEventListener('load', () => {
               const cardWidth = card.getBoundingClientRect().width;
               const layout = getCardLayout(imgEl.naturalWidth, imgEl.naturalHeight, cardWidth);
-              card.dataset.crop = layout.crop;
               card.style.setProperty('--card-height', `${Math.round(layout.cardHeight)}px`);
+              card.style.height = `${Math.round(layout.cardHeight)}px`;
               card.style.setProperty('--active-scale', layout.activeScale);
             });
 
@@ -537,11 +492,7 @@
         stream.appendChild(firstPass);
         stream.appendChild(secondPass);
 
-        const baseDuration = isDesktopLayout() ? 42 : 44 + columnIndex * 2;
-        const speedVariance = isDesktopLayout()
-          ? 0.9 + Math.random() * 0.18
-          : 0.88 + Math.random() * 0.24;
-        stream.style.animationDuration = `${Math.round(baseDuration * speedVariance)}s`;
+        stream.style.animationDuration = `${Math.round(getColumnAnimationDuration(columnIndex, columnCount))}s`;
 
         reelColumn.appendChild(stream);
         columnsWrap.appendChild(reelColumn);
